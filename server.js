@@ -58,5 +58,67 @@ db.serialize(() => {
       FOREIGN KEY (member_phone) REFERENCES members(phone)
     )
   `);
+});
 
-  // 
+// ===== 健康檢查端點 =====
+app.get('/health', (req, res) => {
+  res.json({ status: '✅ API 運行中' });
+});
+
+// ===== LINE Webhook 端點 =====
+app.post('/webhook', (req, res) => {
+  const events = req.body.events;
+  
+  if (!events) {
+    return res.status(400).json({ message: 'No events found' });
+  }
+
+  events.forEach(event => {
+    if (event.type === 'message' && event.message.type === 'text') {
+      const userMessage = event.message.text;
+      const userId = event.source.userId;
+      const replyToken = event.replyToken;
+      
+      handleUserMessage(userMessage, userId, replyToken);
+    }
+  });
+
+  res.json({ message: 'OK' });
+});
+
+// ===== 處理訊息邏輯 =====
+function handleUserMessage(message, userId, replyToken) {
+  const liffUrl = process.env.LIFF_URL || 'https://example.com';
+  
+  if (message.includes('查詢會員') || message.includes('查詢')) {
+    sendMessage(replyToken, '請輸入你的電話號碼查詢會員資訊');
+  } else if (message.includes('新增購買') || message.includes('購買')) {
+    sendMessage(replyToken, '請輸入購買金額');
+  } else if (message.includes('點數') || message.includes('積分')) {
+    sendMessage(replyToken, '請輸入你的電話號碼查詢點數');
+  } else {
+    sendMessage(replyToken, '請選擇操作: 查詢會員 / 新增購買 / 點數兌換');
+  }
+}
+
+// ===== LINE 回覆訊息 =====
+function sendMessage(replyToken, text) {
+  const lineAccessToken = process.env.LINE_ACCESS_TOKEN;
+  const axios = require('axios');
+  
+  axios.post('https://api.line.biz/v2/bot/message/reply', 
+    {
+      replyToken: replyToken,
+      messages: [{ type: 'text', text: text }]
+    },
+    {
+      headers: { 'Authorization': `Bearer ${lineAccessToken}` }
+    }
+  ).catch(err => console.error('Line API error:', err));
+}
+
+// ===== 啟動伺服器 =====
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`✅ 伺服器運行在 http://localhost:${PORT}`);
+});
